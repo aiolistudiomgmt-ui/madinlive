@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>MadinLive — L'île en direct</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-messaging-compat.js"></script>
+<style>
+:root{
+  --bg:#07090D;--surf:#0E1318;--card:#131A21;--card2:#18222C;
+  --bdr:rgba(255,255,255,.07);--bdr2:rgba(255,255,255,.14);
+  --txt:#EDF2FF;--mut:rgba(237,242,255,.42);--mut2:rgba(237,242,255,.22);
+  --red:#FF4455;--reds:rgba(255,68,85,.13);
+  --ora:#FF8C42;--yel:#FFD23F;--grn:#00C98D;--grns:rgba(0,201,141,.12);
+  --blu:#3B9EFF;--pur:#A78BFA;--pink:#F472B6;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--txt);
+  display:flex;flex-direction:column;max-width:430px;margin:0 auto;height:100vh;overflow:hidden}
+
+.topbar{background:var(--surf);border-bottom:1px solid var(--bdr);padding:10px 15px 8px;flex-shrink:0}
+.top1{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.logo{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;
+  background:linear-gradient(110deg,#FF4455,#FF8C42);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:-1.5px;line-height:1;
+  transform:scaleX(.88);transform-origin:left center}
+.logo small{font-size:.55rem;color:var(--mut);-webkit-text-fill-color:var(--mut);display:block;
+  font-weight:400;text-transform:uppercase;letter-spacing:.1em;margin-top:1px}
+.logo-madin{
+  font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;
+  letter-spacing:-.5px;line-height:1;
+  background:linear-gradient(110deg,#FF4455,#FF8C42);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.logo-live{
+  display:inline-flex;align-items:center;gap:3px;
+  background:linear-gradient(110deg,#00C98D,#00a876);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.logo-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#00C98D;flex-shrink:0;
+  box-shadow:0 0 6px rgba(0,201,141,.8);
+  animation:livePulse 1.2s ease-in-out infinite;
+  -webkit-text-fill-color:initial;
+}
+@keyframes livePulse{
+  0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 6px rgba(0,201,141,.8)}
+  50%{opacity:.3;transform:scale(.7);box-shadow:0 0 2px rgba(0,201,141,.3)}
+}
+.logo-wrap{display:flex;flex-direction:column;line-height:1}
+.logo-sub{font-size:.55rem;color:var(--mut);font-weight:400;text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.live-pill{display:flex;align-items:center;gap:5px;background:var(--reds);
+  border:1px solid rgba(255,68,85,.3);border-radius:20px;padding:4px 10px;
+  font-size:.6rem;font-weight:600;color:var(--red);text-transform:uppercase}
+.ldot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:blink 1.1s ease-in-out infinite}
+.live-pill-green{display:flex;align-items:center;gap:5px;
+  background:rgba(0,201,141,.1);border:1px solid rgba(0,201,141,.4);
+  border-radius:20px;padding:4px 10px;
+  font-size:.61rem;font-weight:600;
+  color:var(--grn);letter-spacing:.07em}
+.ldot-green{width:6px;height:6px;border-radius:50%;background:var(--grn);
+  box-shadow:0 0 6px rgba(0,201,141,.8);
+  animation:blink 1.1s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+
+.obar{background:var(--surf);border-bottom:1px solid var(--bdr);padding:5px 15px 6px;
+  display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.obar::-webkit-scrollbar{display:none}
+.od{display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--bdr);
+  border-radius:20px;padding:3px 9px;font-size:.6rem;white-space:nowrap;flex-shrink:0;color:var(--mut)}
+.od b{color:var(--txt);font-weight:500}
+.od.g{background:rgba(0,201,141,.08);border-color:rgba(0,201,141,.25);color:var(--grn)}
+.od.o{background:rgba(255,140,66,.08);border-color:rgba(255,140,66,.28);color:var(--ora)}
+.od.p{background:rgba(167,139,250,.08);border-color:rgba(167,139,250,.25);color:var(--pur)}
+
+.vtabs{background:var(--surf);border-bottom:1px solid var(--bdr);
+  padding:6px 15px 7px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.vtabs::-webkit-scrollbar{display:none}
+.vt{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;
+  font-size:.68rem;font-weight:500;white-space:nowrap;cursor:pointer;
+  border:1.5px solid var(--bdr);background:var(--card);color:var(--mut);
+  transition:all .15s;user-select:none;flex-shrink:0}
+.vt[data-v="alertes"].on{background:var(--reds);border-color:rgba(255,68,85,.4);color:var(--red)}
+.vt[data-v="marches"].on{background:rgba(0,201,141,.12);border-color:rgba(0,201,141,.4);color:var(--grn)}
+.vt[data-v="sorties"].on{background:rgba(244,114,182,.12);border-color:rgba(244,114,182,.4);color:var(--pink)}
+.vt[data-v="bonsplans"].on{background:rgba(255,210,63,.12);border-color:rgba(255,210,63,.4);color:var(--yel)}
+.vt[data-v="sargasses"].on{background:rgba(255,140,66,.12);border-color:rgba(255,140,66,.4);color:var(--ora)}
+.vt .n{background:rgba(255,255,255,.07);border-radius:20px;padding:1px 5px;font-size:.57rem;font-weight:700}
+
+/* MAP */
+.mapwrap{position:relative;flex:0 0 44vh;min-height:210px;overflow:hidden}
+#map{position:absolute;top:0;left:0;width:100%;height:100%}
+.mapboxgl-ctrl-bottom-left,.mapboxgl-ctrl-bottom-right,.mapboxgl-ctrl-top-right{display:none!important}
+.mapboxgl-ctrl-logo{display:none!important}
+
+.mbubble{position:absolute;top:8px;left:8px;background:rgba(7,9,13,.9);
+  backdrop-filter:blur(10px);border:1px solid var(--bdr2);border-radius:9px;
+  padding:4px 10px;font-size:.63rem;display:flex;align-items:center;gap:5px;z-index:5;pointer-events:none}
+.mbubble strong{color:var(--red)}
+.fab{position:absolute;bottom:12px;right:12px;width:46px;height:46px;border-radius:50%;
+  background:linear-gradient(135deg,var(--red),#cc2030);border:none;
+  display:flex;align-items:center;justify-content:center;font-size:1.35rem;color:#fff;
+  cursor:pointer;box-shadow:0 5px 20px rgba(255,68,85,.42);transition:transform .15s;z-index:5}
+.fab:active{transform:scale(.92)}
+
+/* PIN MARKERS */
+.pin-marker{cursor:pointer;transition:transform .15s}
+.pin-marker:hover{transform:scale(1.15)}
+.pin-body{
+  width:34px;height:40px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+  border-radius:50% 50% 50% 0;
+  transform:rotate(-45deg);
+  box-shadow:0 4px 12px rgba(0,0,0,.5);
+  border:2px solid rgba(255,255,255,.25);
+  position:relative;
+}
+.pin-body span{transform:rotate(45deg);display:block}
+.pin-pulse{
+  position:absolute;
+  width:34px;height:34px;border-radius:50%;
+  opacity:.3;
+  animation:pulse 2s ease-out infinite;
+}
+@keyframes pulse{0%{transform:scale(1);opacity:.3}100%{transform:scale(2.5);opacity:0}}
+
+/* PANEL */
+.panel{flex:1;overflow-y:auto;background:var(--bg);padding-bottom:72px;
+  scrollbar-width:thin;scrollbar-color:var(--bdr2) transparent}
+.phdr{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px 7px;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:1px solid var(--bdr)}
+.ptitle{font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700}
+.psort{font-size:.6rem;color:var(--mut);background:var(--card);border:1px solid var(--bdr);
+  border-radius:20px;padding:3px 9px;cursor:pointer}
+.cards{padding:8px 12px;display:flex;flex-direction:column;gap:7px}
+
+.sc{background:var(--card);border:1px solid var(--bdr);border-radius:14px;
+  overflow:hidden;animation:cin .25s ease both;transition:border-color .14s}
+.sc:hover{border-color:var(--bdr2)}
+@keyframes cin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.sc.confirmed{border-left:3px solid var(--red)}
+.sc.unconfirmed{border-left:3px solid var(--ora)}
+.sc.resolved{border-left:3px solid var(--grn);opacity:.6}
+.sc-top{padding:10px 12px 7px;display:flex;align-items:flex-start;gap:9px;cursor:pointer}
+.sc-ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:1.15rem;flex-shrink:0}
+.ia{background:rgba(255,68,85,.14)}.ic{background:rgba(255,210,63,.13)}
+.ib{background:rgba(255,140,66,.13)}.it{background:rgba(59,158,255,.13)}
+.ig{background:rgba(0,201,141,.13)}.ip{background:rgba(244,114,182,.13)}.io{background:rgba(255,255,255,.06)}
+.sc-body{flex:1;min-width:0}
+.sc-title{font-size:.79rem;font-weight:600;line-height:1.3;margin-bottom:2px}
+.sc-loc{font-size:.65rem;color:var(--mut)}
+.sc-meta{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap}
+.sc-time{font-size:.58rem;color:var(--mut2)}
+.badge{font-size:.56rem;font-weight:700;padding:2px 6px;border-radius:20px;text-transform:uppercase}
+.bc{background:rgba(255,68,85,.14);color:var(--red)}.bu{background:rgba(255,140,66,.13);color:var(--ora)}
+.br{background:var(--grns);color:var(--grn)}.bg2{background:rgba(0,201,141,.13);color:var(--grn)}
+.bp{background:rgba(244,114,182,.13);color:var(--pink)}.by{background:rgba(255,210,63,.13);color:var(--yel)}
+.sc-media{margin:0 12px 1px;background:var(--card2);border:1px solid var(--bdr);
+  border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.med-ico{width:32px;height:32px;border-radius:7px;background:rgba(59,158,255,.11);
+  display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.med-inf{flex:1;min-width:0}
+.med-lbl{font-size:.64rem;font-weight:500}
+.med-url{font-size:.57rem;color:var(--blu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.med-ply{width:24px;height:24px;border-radius:50%;background:rgba(59,158,255,.13);
+  border:1px solid rgba(59,158,255,.28);display:flex;align-items:center;justify-content:center;font-size:.65rem}
+.sc-acts{padding:6px 12px 9px;display:flex;align-items:center;gap:6px;
+  border-top:1px solid var(--bdr);margin-top:6px}
+.act{display:flex;align-items:center;gap:4px;background:var(--card2);border:1px solid var(--bdr);
+  border-radius:20px;padding:4px 9px;font-size:.64rem;font-weight:500;color:var(--mut);
+  cursor:pointer;transition:all .13s;user-select:none}
+.act:active{transform:scale(.95)}
+.act.cv:hover,.act.cv.on{background:rgba(255,68,85,.11);border-color:rgba(255,68,85,.32);color:var(--red)}
+.act.ov:hover,.act.ov.on{background:var(--grns);border-color:rgba(0,201,141,.32);color:var(--grn)}
+.act.fav:hover,.act.fav.on{background:rgba(244,114,182,.12);border-color:rgba(244,114,182,.35);color:var(--pink)}
+.act .cnt{font-weight:700}
+.sp{flex:1}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
+  z-index:500;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .22s}
+.overlay.on{opacity:1;pointer-events:all}
+.sheet{background:var(--surf);border:1px solid var(--bdr2);border-radius:22px 22px 0 0;
+  width:100%;max-height:88vh;overflow-y:auto;
+  transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);padding-bottom:34px}
+.overlay.on .sheet{transform:translateY(0)}
+.handle{width:32px;height:4px;background:var(--bdr2);border-radius:4px;margin:11px auto 12px}
+.stitle{font-family:'Syne',sans-serif;font-size:.98rem;font-weight:800;text-align:center;margin-bottom:14px;padding:0 16px}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 14px 13px}
+.tbtn{background:var(--card);border:2px solid var(--bdr);border-radius:10px;padding:10px 5px;
+  text-align:center;cursor:pointer;transition:all .13s}
+.tbtn:hover,.tbtn.sel{border-color:var(--red);background:var(--reds)}
+.tbico{font-size:1.35rem;display:block;margin-bottom:3px}
+.tblbl{font-size:.62rem;font-weight:500;color:var(--mut)}
+.tbtn.sel .tblbl{color:var(--red)}
+.fsec{padding:0 14px 10px}
+.flbl{font-size:.66rem;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;display:block}
+.fi{width:100%;background:var(--card);border:1px solid var(--bdr2);border-radius:10px;
+  padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:.78rem;color:var(--txt);
+  outline:none;resize:none;transition:border-color .13s}
+.fi:focus{border-color:var(--red)}
+.fi::placeholder{color:var(--mut2)}
+.mrow{display:flex;gap:6px;padding:0 14px 10px}
+.madd{flex:1;background:var(--card);border:1px dashed var(--bdr2);border-radius:10px;
+  padding:8px;text-align:center;cursor:pointer;font-size:.63rem;color:var(--mut);transition:all .13s}
+.madd:hover{border-color:var(--blu);color:var(--blu)}
+.madd-i{font-size:1rem;display:block;margin-bottom:2px}
+.sbtn{margin:2px 14px 0;width:calc(100% - 28px);border:none;border-radius:10px;padding:12px;
+  font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700;color:#fff;cursor:pointer;transition:opacity .13s}
+.sbtn:hover{opacity:.92}
+.sbtn.red{background:linear-gradient(135deg,var(--red),#cc2030);box-shadow:0 4px 18px rgba(255,68,85,.28)}
+.sbtn.grn{background:linear-gradient(135deg,var(--grn),#00a876);box-shadow:0 4px 18px rgba(0,201,141,.28)}
+.sbtn.pink{background:linear-gradient(135deg,var(--pink),#e11d8e);box-shadow:0 4px 18px rgba(244,114,182,.28)}
+.sbtn.yel{background:linear-gradient(135deg,#FFD23F,#e6b800);box-shadow:0 4px 18px rgba(255,210,63,.28);color:#333}
+
+.detail{position:fixed;inset:0;background:var(--surf);z-index:400;
+  transform:translateX(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);overflow-y:auto;padding-bottom:40px}
+.detail.on{transform:translateX(0)}
+.dbk{display:flex;align-items:center;gap:7px;padding:13px 15px 9px;font-size:.76rem;color:var(--mut);cursor:pointer;border-bottom:1px solid var(--bdr)}
+.dbk:hover{color:var(--txt)}
+.dbody{padding:15px}
+.d-ico{font-size:2.6rem;text-align:center;display:block;margin-bottom:7px}
+.d-tit{font-family:'Syne',sans-serif;font-size:1.08rem;font-weight:800;text-align:center;margin-bottom:3px}
+.d-loc{text-align:center;font-size:.71rem;color:var(--mut);margin-bottom:13px}
+.dsec{font-size:.64rem;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.09em;margin:13px 0 5px}
+.dblk{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;font-size:.77rem;line-height:1.5}
+.dmedia{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.dm-ico{width:38px;height:38px;border-radius:9px;background:rgba(59,158,255,.11);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.dm-lnk{font-size:.62rem;color:var(--blu);text-decoration:none}
+.vrow{display:flex;gap:7px;margin-top:3px}
+.vbtn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--bdr);background:var(--card);text-align:center;cursor:pointer;font-size:.72rem;font-weight:600;transition:all .13s}
+.vbtn.up:hover{background:rgba(255,68,85,.11);color:var(--red)}
+.vbtn.dn:hover{background:var(--grns);color:var(--grn)}
+.v-ico{font-size:1.15rem;display:block;margin-bottom:3px}
+
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;
+  background:rgba(14,19,24,.97);backdrop-filter:blur(16px);border-top:1px solid var(--bdr);
+  display:flex;padding:7px 0 15px;z-index:200}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;opacity:.38;transition:opacity .13s}
+.ni.on{opacity:1}
+.ni-i{font-size:1.15rem}
+.ni-l{font-size:.52rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+.ni.on .ni-l{color:var(--red)}
+
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(12px);
+  background:var(--card2);border:1px solid var(--bdr2);border-radius:20px;padding:8px 16px;
+  font-size:.73rem;font-weight:500;z-index:1000;opacity:0;transition:all .21s;
+  pointer-events:none;white-space:nowrap;max-width:92%}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* AUTH */
+.auth-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px}
+.auth-screen.hidden{display:none}
+.auth-logo{font-family:'Syne',sans-serif;font-size:2.8rem;font-weight:800;
+  background:linear-gradient(110deg,#FF4455,#FF8C42);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:-1px;margin-bottom:6px;text-align:center}
+.auth-sub{font-size:.8rem;color:var(--mut);text-align:center;margin-bottom:40px}
+.auth-card{background:var(--card);border:1px solid var(--bdr2);border-radius:20px;
+  padding:24px;width:100%;max-width:340px}
+.auth-title{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;
+  margin-bottom:18px;text-align:center}
+.auth-input{width:100%;background:var(--card2);border:1px solid var(--bdr2);
+  border-radius:11px;padding:11px 14px;font-family:'DM Sans',sans-serif;
+  font-size:.85rem;color:var(--txt);outline:none;margin-bottom:10px;transition:border-color .13s}
+.auth-input:focus{border-color:var(--red)}
+.auth-input::placeholder{color:var(--mut2)}
+.auth-btn{width:100%;background:linear-gradient(135deg,var(--red),#cc2030);
+  border:none;border-radius:11px;padding:13px;font-family:'Syne',sans-serif;
+  font-size:.9rem;font-weight:700;color:#fff;cursor:pointer;margin-top:4px;
+  box-shadow:0 4px 18px rgba(255,68,85,.28);transition:opacity .13s}
+.auth-btn:hover{opacity:.92}
+.auth-btn.secondary{background:var(--card2);color:var(--mut);box-shadow:none;
+  border:1px solid var(--bdr2);margin-top:8px}
+.auth-sep{text-align:center;font-size:.72rem;color:var(--mut);margin:12px 0}
+.auth-msg{font-size:.75rem;color:var(--grn);text-align:center;margin-top:10px;display:none}
+.auth-err{font-size:.75rem;color:var(--red);text-align:center;margin-top:10px;display:none}
+
+/* USER MENU */
+.user-btn{display:flex;align-items:center;gap:6px;background:var(--card);
+  border:1px solid var(--bdr);border-radius:20px;padding:4px 10px;
+  font-size:.65rem;cursor:pointer;color:var(--txt);flex-shrink:0}
+.user-avatar{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--ora));
+  display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="top1">
+    <div class="logo">MadinLive<small>L'île en direct</small></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="live-pill-green"><div class="ldot-green"></div>LIVE</div>
+      <div class="user-btn" id="userBtn">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span id="userName">Connexion</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ÉCRAN CONNEXION -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-logo">MadinLive</div>
+  <div class="auth-sub">L'île en direct 🌴</div>
+  <div class="auth-card" id="authCard">
+    <div class="auth-title" id="authTitle">Connexion</div>
+    <input class="auth-input" id="authEmail" type="email" placeholder="Ton adresse email">
+    <input class="auth-input" id="authPassword" type="password" placeholder="Mot de passe" style="display:none">
+    <button class="auth-btn" id="authBtn">Continuer →</button>
+    <button class="auth-btn secondary" id="authSkip">Continuer sans compte</button>
+    <div class="auth-msg" id="authMsg"></div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<div class="obar">
+  <div class="od g">🟢 <b>Vigilance normale</b></div>
+  <div class="od">☀️ <b>29°C</b> FDF</div>
+  <div class="od">💨 <b>18km/h</b> NE</div>
+  <div class="od g">💨 ATMO <b>Bon</b></div>
+  <div class="od o">🌿 Sargasses <b>Modéré ATL</b></div>
+  <div class="od g">🌋 Pelée <b>Normal</b></div>
+  <div class="od p">🔵 Séisme <b>M1.8</b> 2h</div>
+  <div class="od">🌊 Mer <b>peu agitée</b></div>
+</div>
+
+<div class="vtabs">
+  <div class="vt on" data-v="alertes">🚨 Alertes <span class="n">7</span></div>
+  <div class="vt" data-v="marches">🥦 Marchés <span class="n">9</span></div>
+  <div class="vt" data-v="sorties">🎉 Sorties <span class="n">12</span></div>
+  <div class="vt" data-v="bonsplans">💰 Bons plans <span class="n">5</span></div>
+  <div class="vt" data-v="sargasses">🏖️ Plages</div>
+</div>
+
+<div class="mapwrap">
+  <div id="map"></div>
+  <div class="mbubble">
+    <span id="bIco">🚨</span>
+    <strong id="bCnt">7</strong>
+    <span id="bLbl">signalements actifs</span>
+  </div>
+  <button class="fab" id="openModal">＋</button>
+</div>
+
+<div class="panel">
+  <div class="phdr">
+    <div class="ptitle" id="pTitle">📋 Signalements récents</div>
+    <div class="psort" id="sortBtn">⏱ Récent</div>
+  </div>
+  <div class="cards" id="cList"></div>
+</div>
+
+<div class="bnav">
+  <div class="ni on"><div class="ni-i">🗺️</div><div class="ni-l">Carte</div></div>
+  <div class="ni"><div class="ni-i">🔔</div><div class="ni-l">Alertes</div></div>
+  <div class="ni"><div class="ni-i">＋</div><div class="ni-l">Signaler</div></div>
+  <div class="ni"><div class="ni-i">❤️</div><div class="ni-l">Favoris</div></div>
+  <div class="ni" id="navProfil"><div class="ni-i">👤</div><div class="ni-l">Profil</div></div>
+</div>
+
+<div class="overlay" id="ov">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="stitle" id="mTitle">🚨 Nouveau signalement</div>
+    <div id="mContent"></div>
+  </div>
+</div>
+
+<div class="detail" id="dp">
+  <div class="dbk" id="dbk">← Retour</div>
+  <div class="dbody" id="db"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- PAGE PROFIL -->
+<div class="detail" id="profilPanel">
+  <div class="dbk" id="profilBack">← Retour</div>
+  <div class="dbody" id="profilBody">
+    <div style="text-align:center;padding:10px 0 20px">
+      <div id="profilAvatar" style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--ora));display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;color:#fff;margin:0 auto 12px">?</div>
+      <div id="profilName" style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:800;margin-bottom:4px">Non connecté</div>
+      <div id="profilEmail" style="font-size:.75rem;color:var(--mut)"></div>
+      <div id="profilBadge" style="display:inline-block;margin-top:8px;background:var(--card);border:1px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:.7rem;color:var(--mut)">👤 Compte gratuit</div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,rgba(255,210,63,.12),rgba(255,140,66,.12));border:1px solid rgba(255,210,63,.3);border-radius:16px;padding:16px;margin-bottom:16px">
+      <div style="font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;margin-bottom:8px">⭐ Passer Pro</div>
+      <div style="font-size:.75rem;color:var(--mut);line-height:1.6;margin-bottom:12px">
+        🔔 Notifications push vers tes abonnés<br>
+        ✅ Badge vérifié sur ton profil<br>
+        📊 Statistiques de tes publications<br>
+        📌 Pin permanent sur la carte
+      </div>
+      <button onclick="toast('🚀 Bientôt disponible !')" style="width:100%;background:linear-gradient(135deg,#FFD23F,#e6b800);border:none;border-radius:10px;padding:11px;font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700;color:#333;cursor:pointer">Devenir Pro — 15€/mois</button>
+      <button id="notifBtn" onclick="demanderNotifications()" style="width:100%;background:var(--card);border:1px solid rgba(0,201,141,.3);border-radius:10px;padding:10px;font-size:.8rem;color:var(--grn);cursor:pointer;margin-top:8px">🔔 Activer les notifications push</button>
+    </div>
+
+    <div style="background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:14px;margin-bottom:10px">
+      <div style="font-size:.7rem;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Mes statistiques</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+        <div><div style="font-size:1.4rem;font-weight:700;color:var(--red)" id="statSignalements">0</div><div style="font-size:.62rem;color:var(--mut)">Signalements</div></div>
+        <div><div style="font-size:1.4rem;font-weight:700;color:var(--grn)" id="statPublications">0</div><div style="font-size:.62rem;color:var(--mut)">Publications</div></div>
+        <div><div style="font-size:1.4rem;font-weight:700;color:var(--yel)" id="statReputation">0</div><div style="font-size:.62rem;color:var(--mut)">Réputation</div></div>
+      </div>
+    </div>
+
+    <button onclick="if(confirm('Te déconnecter ?')){sb.auth.signOut();currentUser=null;updateUserUI(null);document.getElementById('profilPanel').classList.remove('on');toast('👋 Déconnecté');}" style="width:100%;background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:11px;font-size:.82rem;color:var(--mut);cursor:pointer">Se déconnecter</button>
+  </div>
+</div>
+
+<script>
+// ═══ MAPBOX ═══
+mapboxgl.accessToken = 'pk.eyJ1IjoiYWlvbGkiLCJhIjoiY21vZGViY3F2MDJmdTJyczJ2eGZ3bGowbiJ9.QUeHjcYkho4pZYCo00SVRA';
+
+// Style automatique jour/nuit
+function getMapStyle() {
+  const h = new Date().getHours();
+  // Jour : 7h-19h -> style clair | Nuit : 19h-7h -> style minuit
+  return (h >= 7 && h < 19)
+    ? 'mapbox://styles/mapbox/streets-v12'
+    : 'mapbox://styles/mapbox/navigation-night-v1';
+}
+
+// Mettre à jour le style toutes les minutes (si l'appli reste ouverte au crépuscule)
+setInterval(() => {
+  const newStyle = getMapStyle();
+  if (map.getStyle().name !== newStyle) map.setStyle(newStyle);
+}, 60000);
+
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: getMapStyle(),
+  center: [-61.024, 14.641],
+  zoom: 10,
+  minZoom: 9,
+  maxZoom: 15,
+  attributionControl: false,
+  logoPosition: 'bottom-left'
+});
+
+// Masquer le logo Mapbox
+map.on('load', () => {
+  document.querySelectorAll('.mapboxgl-ctrl-logo, .mapboxgl-ctrl-attrib').forEach(el => el.style.display='none');
+});
+
+// ═══ SUPABASE ═══
+const SUPABASE_URL = 'https://ztzjkehojditunbpjtie.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0emprZWhvamRpdHVuYnBqdGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwOTczNjIsImV4cCI6MjA5MjY3MzM2Mn0.DTnIXrYoJgyA2YdE7ehOSFTa2Zxt9Kj6r4-_ZMc7fwg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ═══ DONNÉES (cache local + Supabase) ═══
+const DATA = {alertes:[],marches:[],sorties:[],bonsplans:[],sargasses:[]};
+
+// Mapping table Supabase → volet
+const TABLE_MAP = {
+  alertes:'signalements', marches:'marches',
+  sorties:'sorties', bonsplans:'bonsplans', sargasses:'sargasses'
+};
+
+// Mapping colonnes Supabase → format interne
+function mapRow(row, volet) {
+  const iconMap = {
+    accident:'🚗',controle:'🚓',bouchon:'🐢',travaux:'🚧',danger:'⚠️',divers:'📍',
+    producteur:'🥦',snack:'🍗',artisan:'🎨',
+    concert:'🎵',festival:'🎪',sport:'⚽',expo:'🎨',nature:'🌿',
+    promo:'🛒',deal:'💰',
+    fort:'⚠️',modere:'🌿',faible:'🌿',libre:'✅'
+  };
+  const iclsMap = {
+    accident:'ia',controle:'ic',bouchon:'ib',travaux:'it',danger:'io',divers:'io',
+    producteur:'ig',snack:'ig',artisan:'ig',
+    concert:'ip',festival:'ip',sport:'ip',expo:'ip',nature:'ip',divers:'ip',
+    promo:'ic',deal:'ic',
+    fort:'io',modere:'io',faible:'ig',libre:'ig'
+  };
+  if(volet === 'sargasses') {
+    return {
+      id: row.id, type: 'sarg_'+row.niveau, icon: iconMap[row.niveau]||'🌿',
+      icls: iclsMap[row.niveau]||'io',
+      title: row.plage+' — '+row.niveau.charAt(0).toUpperCase()+row.niveau.slice(1),
+      loc: row.commune, user: row.source||'Météo France MQ',
+      desc: row.description||'', ts: new Date(row.updated_at).getTime(),
+      status:'confirmed', conf:99, ok:0, lat:row.lat, lng:row.lng, media:null
+    };
+  }
+  return {
+    id: row.id,
+    type: row.type,
+    icon: row.icon || iconMap[row.type] || '📍',
+    icls: iclsMap[row.type] || 'io',
+    title: row.title,
+    loc: row.lieu,
+    user: row.user_name || 'Anonyme',
+    desc: row.description || '',
+    ts: new Date(row.created_at).getTime(),
+    status: row.status || 'confirmed',
+    conf: row.confirmations || row.participants || row.favoris || 0,
+    ok: row.votes_resolu || 0,
+    lat: row.lat, lng: row.lng,
+    date: row.date_event || null,
+    media: row.media_url ? {ico: row.media_type==='video'?'🎬':'📸', lbl:'Média attaché', url:row.media_url} : null
+  };
+}
+
+// Charger les données d'un volet depuis Supabase
+async function loadVolet(volet) {
+  const table = TABLE_MAP[volet];
+  try {
+    let query = sb.from(table).select('*');
+    if(volet === 'alertes') query = query.order('created_at', {ascending:false})
+      .gt('expires_at', new Date().toISOString()).limit(50);
+    else if(volet === 'sargasses') query = query.order('updated_at', {ascending:false});
+    else query = query.order('created_at', {ascending:false}).limit(30);
+    const {data, error} = await query;
+    if(error) throw error;
+    DATA[volet] = (data||[]).map(row => mapRow(row, volet));
+  } catch(e) {
+    console.warn('Erreur chargement '+volet+':', e.message);
+    // Garder les données existantes si erreur
+  }
+  return DATA[volet];
+}
+
+// Temps réel — écouter les nouvelles insertions
+function subscribeRealtime() {
+  ['signalements','marches','sorties','bonsplans'].forEach((table, i) => {
+    const volet = Object.keys(TABLE_MAP)[i];
+    sb.channel('rt-'+table)
+      .on('postgres_changes', {event:'INSERT', schema:'public', table}, async payload => {
+        const item = mapRow(payload.new, volet);
+        DATA[volet].unshift(item);
+        if(currentVolet === volet) { updateMarkers(); renderCards(); }
+        // Mettre à jour le compteur dans les tabs
+        const tab = document.querySelector('.vt[data-v="'+volet+'"] .n');
+        if(tab) tab.textContent = DATA[volet].filter(x=>x.status!=='resolved').length;
+        toast('🔔 Nouveau '+volet.slice(0,-1)+' signalé !');
+      })
+      .subscribe();
+  });
+}
+
+// Publier un signalement dans Supabase
+async function publierSignalement(volet, formData) {
+  const table = TABLE_MAP[volet];
+  const {error} = await sb.from(table).insert([formData]);
+  if(error) { toast('❌ Erreur: '+error.message); return false; }
+  return true;
+}
+
+// Voter (confirmer / résolu / favori)
+async function voter(volet, itemId, voteType) {
+  const {error} = await sb.from('votes').insert([{
+    table_ref: TABLE_MAP[volet],
+    item_id: itemId,
+    vote_type: voteType
+  }]);
+  if(error && error.code === '23505') return false; // déjà voté
+  if(error) return false;
+  // Mettre à jour le compteur dans Supabase
+  const table = TABLE_MAP[volet];
+  const col = voteType==='confirme'?'confirmations':voteType==='resolu'?'votes_resolu':'favoris';
+  await sb.rpc('increment_'+col, {row_id: itemId}).catch(()=>{});
+  return true;
+}
+
+// Couleurs pins par type
+const PIN_COLS = {
+  accident:'#FF4455',controle:'#FFD23F',bouchon:'#FF8C42',travaux:'#3B9EFF',
+  producteur:'#00C98D',snack:'#00C98D',artisan:'#22D3EE',
+  concert:'#F472B6',festival:'#A78BFA',sport:'#3B9EFF',expo:'#FB923C',nature:'#4ADE80',
+  promo:'#FFD23F',deal:'#FF8C42',
+  sarg_fort:'#FF4455',sarg_mod:'#FF8C42',sarg_ok:'#00C98D',sarg_faible:'#00C98D'
+};
+
+let currentVolet = 'alertes';
+let mapMarkers = [];
+
+// ═══ PINS MAPBOX ═══
+function createPinEl(item) {
+  const col = item.status === 'resolved' ? '#555' : (PIN_COLS[item.type] || '#888');
+  const el = document.createElement('div');
+  el.className = 'pin-marker';
+  el.innerHTML = `
+    <div style="position:relative;width:34px;height:44px">
+      <div class="pin-pulse" style="background:${col};top:0;left:0"></div>
+      <div class="pin-body" style="background:${col}">
+        <span>${item.icon}</span>
+      </div>
+    </div>`;
+  el.addEventListener('click', () => openDetail(item.id, currentVolet));
+  return el;
+}
+
+function updateMarkers() {
+  // Supprimer anciens markers
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+  const items = DATA[currentVolet] || [];
+  items.forEach(item => {
+    const el = createPinEl(item);
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat([item.lng, item.lat])
+      .addTo(map);
+    mapMarkers.push(marker);
+  });
+  // Mettre à jour bulle
+  const cfg = VCFG[currentVolet];
+  document.getElementById('bIco').textContent = cfg.bubble;
+  document.getElementById('bCnt').textContent = items.filter(i => i.status !== 'resolved').length;
+  document.getElementById('bLbl').textContent = cfg.label;
+}
+
+// ═══ CONFIG VOLETS ═══
+const VCFG = {
+  alertes:{title:'📋 Signalements récents',bubble:'🚨',label:'signalements actifs',sort:true,mTitle:'🚨 Nouveau signalement',fabCol:'red',fabBg:'linear-gradient(135deg,#FF4455,#cc2030)'},
+  marches:{title:'🥦 Vendeurs & producteurs',bubble:'🥦',label:'vendeurs en ligne',sort:false,mTitle:'🥦 Poster un produit',fabCol:'grn',fabBg:'linear-gradient(135deg,#00C98D,#00a876)'},
+  sorties:{title:'🎉 Activités & sorties',bubble:'🎉',label:'événements',sort:false,mTitle:'🎉 Poster une sortie',fabCol:'pink',fabBg:'linear-gradient(135deg,#F472B6,#e11d8e)'},
+  bonsplans:{title:'💰 Bons plans du jour',bubble:'💰',label:'offres signalées',sort:false,mTitle:'💰 Signaler un bon plan',fabCol:'yel',fabBg:'linear-gradient(135deg,#FFD23F,#e6b800)'},
+  sargasses:{title:'🏖️ État des plages',bubble:'🌿',label:'plages surveillées',sort:false,mTitle:'🏖️ Signaler état d\'une plage',fabCol:'',fabBg:'none'}
+};
+
+async function switchVolet(v) {
+  currentVolet = v;
+  document.querySelectorAll('.vt').forEach(t => t.classList.toggle('on', t.dataset.v === v));
+  const cfg = VCFG[v];
+  document.getElementById('pTitle').textContent = cfg.title;
+  document.getElementById('sortBtn').style.display = cfg.sort ? '' : 'none';
+  const fab = document.getElementById('openModal');
+  if (v === 'sargasses') { fab.style.display = 'none'; }
+  else { fab.style.display = 'flex'; fab.style.background = cfg.fabBg; }
+  // Afficher loading
+  document.getElementById('cList').innerHTML = '<div style="text-align:center;padding:30px;color:var(--mut);font-size:.8rem">Chargement...</div>';
+  // Charger depuis Supabase
+  await loadVolet(v);
+  updateMarkers();
+  renderCards();
+  map.flyTo({ center: [-61.024, 14.641], zoom: 10, duration: 800 });
+}
+document.querySelectorAll('.vt').forEach(t => t.addEventListener('click', () => switchVolet(t.dataset.v)));
+
+// ═══ CARDS ═══
+function tAgo(ts) {
+  const m = Math.floor((Date.now()-ts)/60000);
+  if(m<1) return "À l'instant"; if(m<60) return `Il y a ${m}min`;
+  const h=Math.floor(m/60),r=m%60; return `Il y a ${h}h${r>0?r+'min':''}`;
+}
+
+function renderCards() {
+  const wrap = document.getElementById('cList'); wrap.innerHTML = '';
+  const v = currentVolet;
+  let list = [...(DATA[v]||[])];
+  if(v==='alertes') list.sort((a,b)=>b.ts-a.ts);
+  list.forEach((s,i) => {
+    const isS=v==='sorties', isM=v==='marches', isB=v==='bonsplans', isSG=v==='sargasses';
+    const bC = isS?'bp':isM?'bg2':isB?'by':s.status==='confirmed'?'bc':s.status==='resolved'?'br':'bu';
+    const bT = isS?(s.date||'À venir'):isM?'En ligne':isB?'Bon plan':isSG?'Officiel':s.status==='confirmed'?`✓ ${s.conf}×`:s.status==='resolved'?'✅ Résolu':`⏳ ${s.conf}`;
+    let mH = '';
+    if(s.media) mH=`<div class="sc-media"><div class="med-ico">${s.media.ico}</div><div class="med-inf"><div class="med-lbl">${s.media.lbl}</div><div class="med-url">${s.media.url}</div></div><div class="med-ply">▶</div></div>`;
+    const acts = isS
+      ? `<div class="act fav">❤️ J'y vais <span class="cnt">${s.conf}</span></div><div class="sp"></div><div class="act sh">↗</div>`
+      : isM ? `<div class="act cv">👍 <span class="cnt">${s.conf}</span></div><div class="act fav">⭐ Favori</div><div class="sp"></div><div class="act sh">↗</div>`
+      : isSG ? `<div class="act cv">✅ Confirmé</div><div class="sp"></div><div class="act sh">↗</div>`
+      : `<div class="act cv">🚨 Vrai <span class="cnt">${s.conf}</span></div><div class="act ov">✅ Résolu <span class="cnt">${s.ok}</span></div><div class="sp"></div><div class="act sh">↗</div>`;
+
+    const div = document.createElement('div');
+    div.className = `sc ${s.status}`; div.style.animationDelay = (i*.045)+'s';
+    div.innerHTML = `<div class="sc-top"><div class="sc-ico ${s.icls}">${s.icon}</div><div class="sc-body"><div class="sc-title">${s.title}</div><div class="sc-loc">📍 ${s.loc} · <span style="color:var(--mut2)">${s.user}</span></div><div class="sc-meta"><span class="sc-time">${tAgo(s.ts)}</span><span class="badge ${bC}">${bT}</span></div></div></div>${mH}<div class="sc-acts">${acts}</div>`;
+    div.querySelector('.sc-top').addEventListener('click', () => openDetail(s.id, v));
+    if(s.media) div.querySelector('.sc-media').addEventListener('click', () => openDetail(s.id, v));
+    div.querySelectorAll('.act').forEach(a => {
+      a.addEventListener('click', e => {
+        e.stopPropagation();
+        if(a.classList.contains('sh')){toast('🔗 Lien copié !');return;}
+        if(a.classList.contains('fav')){a.classList.toggle('on');toast(a.classList.contains('on')?'❤️ Ajouté aux favoris !':'Retiré des favoris');return;}
+        if(!a.classList.contains('on')){a.classList.add('on');toast('✓ Enregistré !');}
+      });
+    });
+    wrap.appendChild(div);
+  });
+}
+
+// ═══ DETAIL ═══
+function openDetail(id, volet) {
+  const s = (DATA[volet]||[]).find(x=>x.id===id); if(!s) return;
+  let mH = '';
+  if(s.media) mH=`<div class="dsec">🎬 Média attaché</div><div class="dmedia"><div class="dm-ico">${s.media.ico}</div><div style="flex:1;min-width:0"><div style="font-size:.76rem;font-weight:500;margin-bottom:2px">${s.media.lbl}</div><a class="dm-lnk" href="${s.media.url}" target="_blank">Ouvrir →</a></div></div>`;
+  const dateH = s.date ? `<div style="background:rgba(244,114,182,.1);border:1px solid rgba(244,114,182,.25);border-radius:10px;padding:9px 12px;margin-bottom:4px;font-size:.79rem;font-weight:500">📅 ${s.date}</div>` : '';
+  document.getElementById('db').innerHTML=`<span class="d-ico">${s.icon}</span><div class="d-tit">${s.title}</div><div class="d-loc">📍 ${s.loc} · par ${s.user}</div>${dateH}<div class="dsec">📝 Description</div><div class="dblk">${s.desc}</div>${mH}<div class="dsec">Actions</div><div class="vrow"><div class="vbtn up" onclick="toast('✓ Enregistré !')"><span class="v-ico">${volet==='sorties'?'❤️':'🚨'}</span>${volet==='sorties'?'Je participe':volet==='marches'?'Je suis intéressé':'Confirmer'}</div><div class="vbtn dn" onclick="toast('↗ Lien copié !')"><span class="v-ico">↗</span>Partager</div></div>`;
+  document.getElementById('dp').classList.add('on');
+  // Zoom Mapbox sur le pin
+  map.flyTo({ center: [s.lng, s.lat], zoom: 13, duration: 800 });
+}
+document.getElementById('dbk').addEventListener('click', () => {
+  document.getElementById('dp').classList.remove('on');
+  map.flyTo({ center: [-61.024, 14.641], zoom: 10, duration: 800 });
+});
+
+// ═══ MODAL ═══
+document.getElementById('openModal').addEventListener('click', () => {
+  const v = currentVolet, c = VCFG[v];
+  document.getElementById('mTitle').textContent = c.mTitle;
+  let html = '';
+  if(v==='alertes'){
+    html=`<div class="tgrid"><div class="tbtn sel"><span class="tbico">🚗</span><span class="tblbl">Accident</span></div><div class="tbtn"><span class="tbico">🚓</span><span class="tblbl">Contrôle</span></div><div class="tbtn"><span class="tbico">🐢</span><span class="tblbl">Bouchon</span></div><div class="tbtn"><span class="tbico">🚧</span><span class="tblbl">Travaux</span></div><div class="tbtn"><span class="tbico">⚠️</span><span class="tblbl">Danger</span></div><div class="tbtn"><span class="tbico">📍</span><span class="tblbl">Autre</span></div></div><div class="fsec"><span class="flbl">Description</span><textarea class="fi" id="fi1" rows="2" placeholder="Décris la situation..."></textarea></div><div class="fsec"><span class="flbl">Lieu précis</span><input class="fi" id="fi2" type="text" placeholder="Ex: RN1 Lamentin, Sortie Dillon..."></div>`;
+  }else if(v==='marches'){
+    html=`<div class="tgrid"><div class="tbtn sel"><span class="tbico">🌿</span><span class="tblbl">Producteur</span></div><div class="tbtn"><span class="tbico">🍗</span><span class="tblbl">Snack</span></div><div class="tbtn"><span class="tbico">🎨</span><span class="tblbl">Artisan</span></div></div><div class="fsec"><span class="flbl">Produit / service</span><input class="fi" id="fi2" type="text" placeholder="Ex: Légumes bio, Colombo poulet..."></div><div class="fsec"><span class="flbl">Où tu es</span><input class="fi" id="fi1" type="text" placeholder="Ex: Bord de route Sainte-Marie..."></div>`;
+  }else if(v==='sorties'){
+    html=`<div class="tgrid"><div class="tbtn sel"><span class="tbico">🎵</span><span class="tblbl">Concert</span></div><div class="tbtn"><span class="tbico">🎪</span><span class="tblbl">Festival</span></div><div class="tbtn"><span class="tbico">🌿</span><span class="tblbl">Nature</span></div><div class="tbtn"><span class="tbico">⚽</span><span class="tblbl">Sport</span></div><div class="tbtn"><span class="tbico">🎨</span><span class="tblbl">Expo</span></div><div class="tbtn"><span class="tbico">📍</span><span class="tblbl">Autre</span></div></div><div class="fsec"><span class="flbl">Nom de la sortie</span><input class="fi" id="fi2" type="text" placeholder="Ex: Soirée Zouk, Randonnée Pelée..."></div><div class="fsec"><span class="flbl">Lieu & date</span><textarea class="fi" id="fi1" rows="2" placeholder="Ex: Fort-de-France — Samedi 20h"></textarea></div>`;
+  }else{
+    html=`<div class="fsec"><span class="flbl">Le bon plan</span><input class="fi" id="fi2" type="text" placeholder="Ex: Poulet -30% chez Hyper U..."></div><div class="fsec"><span class="flbl">Où</span><input class="fi" id="fi1" type="text" placeholder="Ex: Hyper U Cluny, Fort-de-France"></div>`;
+  }
+  html+=`<div style="padding:0 14px 5px"><span class="flbl">Média (optionnel)</span></div><div class="mrow"><div class="madd"><span class="madd-i">📸</span>Photo</div><div class="madd" id="vt"><span class="madd-i">🎬</span>Vidéo/Lien</div><div class="madd" id="gp"><span class="madd-i">📍</span>GPS</div></div><div class="fsec" id="vs" style="display:none"><span class="flbl">Lien (YouTube, TikTok...)</span><input class="fi" id="vi" type="url" placeholder="https://..."></div><button class="sbtn ${c.fabCol}" id="sb">Publier maintenant ➜</button>`;
+  document.getElementById('mContent').innerHTML = html;
+  document.querySelectorAll('.tbtn').forEach(b => { b.addEventListener('click',()=>{document.querySelectorAll('.tbtn').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');}); });
+  document.getElementById('vt')?.addEventListener('click',()=>{const s=document.getElementById('vs');if(s)s.style.display=s.style.display==='none'?'block':'none';});
+  document.getElementById('gp')?.addEventListener('click',()=>toast('📍 Position GPS récupérée !'));
+  document.getElementById('sb')?.addEventListener('click', async ()=>{
+    const fi2 = document.getElementById('fi2')?.value.trim();
+    const fi1 = document.getElementById('fi1')?.value.trim();
+    const vi  = document.getElementById('vi')?.value.trim();
+    if(!fi2){toast('Remplis au moins un champ !');return;}
+    const typeBtn = document.querySelector('.tbtn.sel');
+    const type = typeBtn?.dataset?.t || (v==='alertes'?'accident':v==='marches'?'producteur':v==='sorties'?'concert':'promo');
+    const iconMap = {accident:'🚗',controle:'🚓',bouchon:'🐢',travaux:'🚧',danger:'⚠️',divers:'📍',producteur:'🥦',snack:'🍗',artisan:'🎨',concert:'🎵',festival:'🎪',sport:'⚽',expo:'🎨',nature:'🌿',promo:'🛒',deal:'💰'};
+    // Géolocalisation réelle de l'utilisateur
+    let lat = 14.641, lng = -61.024; // centre Martinique par défaut
+    try {
+      const pos = await new Promise((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, {timeout:5000})
+      );
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+    } catch(e) {
+      toast('📍 Position non disponible, centre île utilisé');
+    }
+    const formData = {
+      type, icon: iconMap[type]||'📍',
+      title: fi2, lieu: fi1||fi2,
+      description: fi1||'',
+      lat, lng,
+      media_url: vi||null,
+      media_type: vi ? 'video' : null,
+      user_name: currentUser ? currentUser.email.split('@')[0] : 'Anonyme',
+      user_id: currentUser ? currentUser.id : null
+    };
+    if(v==='sorties') formData.date_event = fi1||'À venir';
+    const btn = document.getElementById('sb');
+    btn.textContent = 'Publication...'; btn.style.opacity='.6';
+    const ok = await publierSignalement(v, formData);
+    if(ok){
+      toast(v==='alertes'?'🚨 Signalement publié !':v==='marches'?'🥦 Produit en ligne !':v==='sorties'?'🎉 Sortie publiée !':'💰 Bon plan partagé !');
+      document.getElementById('ov').classList.remove('on');
+      await switchVolet(v);
+    }
+    btn.textContent = 'Publier maintenant ➜'; btn.style.opacity='1';
+  });
+  document.getElementById('ov').classList.add('on');
+});
+document.getElementById('ov').addEventListener('click', e=>{if(e.target===document.getElementById('ov'))document.getElementById('ov').classList.remove('on');});
+
+// ═══ TOAST ═══
+// ═══ FIREBASE NOTIFICATIONS ═══
+const FB_CONFIG = {
+  apiKey: "AIzaSyC1oTME599olOExvAfo_03orh-8HBrXSi4",
+  authDomain: "madinlive-fe6f5.firebaseapp.com",
+  projectId: "madinlive-fe6f5",
+  storageBucket: "madinlive-fe6f5.firebasestorage.app",
+  messagingSenderId: "190026832681",
+  appId: "1:190026832681:web:dbf683efca1c2d4cd9b538"
+};
+const VAPID_KEY = "BGI75CBYaHwP8SC__fsU2xyLdUBg0Imtq_NLBtsmtL3BDH7JWraSuYlKi75i6V3Oz3PfUCmZYADO4DlgTlATpsA";
+
+let fbMessaging = null;
+
+function initFirebase() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    fbMessaging = firebase.messaging();
+    // Notif reçue en premier plan (appli ouverte)
+    fbMessaging.onMessage(payload => {
+      const n = payload.notification || {};
+      toast('🔔 ' + (n.title||'MadinLive') + ' — ' + (n.body||''));
+      // Recharger le volet concerné
+      const volet = payload.data?.volet;
+      if(volet && volet === currentVolet) { loadVolet(volet).then(()=>{updateMarkers();renderCards();}); }
+    });
+  } catch(e) { console.warn('Firebase init:', e.message); }
+}
+
+async function demanderNotifications() {
+  const btn = document.getElementById('notifBtn');
+  if(!btn) return;
+  try {
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted') { toast('❌ Notifications refusées'); return; }
+    if(!fbMessaging) initFirebase();
+    // Enregistrer le Service Worker
+    const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    const token = await fbMessaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    if(token) {
+      // Sauvegarder le token dans Supabase
+      if(currentUser) {
+        await sb.from('profils').upsert({ id: currentUser.id, fcm_token: token }, { onConflict: 'id' });
+      }
+      localStorage.setItem('fcm_token', token);
+      btn.textContent = '✅ Notifications activées !';
+      btn.style.background = 'var(--grns)';
+      btn.style.borderColor = 'var(--grn)';
+      toast('🔔 Notifications push activées !');
+    }
+  } catch(e) {
+    toast('❌ Erreur notifications: ' + e.message);
+    console.error(e);
+  }
+}
+
+// Vérifier si notifs déjà activées
+function checkNotifStatus() {
+  const btn = document.getElementById('notifBtn');
+  if(!btn) return;
+  if(Notification.permission === 'granted' && localStorage.getItem('fcm_token')) {
+    btn.textContent = '✅ Notifications activées';
+    btn.style.color = 'var(--grn)';
+  }
+}
+
+// ═══ PROFIL ═══
+document.getElementById('navProfil').addEventListener('click', () => {
+  const panel = document.getElementById('profilPanel');
+  panel.classList.add('on');
+  checkNotifStatus();
+  if(currentUser) {
+    const initiale = currentUser.email[0].toUpperCase();
+    document.getElementById('profilAvatar').textContent = initiale;
+    document.getElementById('profilName').textContent = currentUser.email.split('@')[0];
+    document.getElementById('profilEmail').textContent = currentUser.email;
+    document.getElementById('profilBadge').innerHTML = '👤 Compte gratuit';
+    // Charger stats depuis Supabase
+    sb.from('signalements').select('id', {count:'exact'}).eq('user_id', currentUser.id)
+      .then(({count}) => { document.getElementById('statSignalements').textContent = count||0; });
+    sb.from('profils').select('reputation').eq('id', currentUser.id).single()
+      .then(({data}) => { document.getElementById('statReputation').textContent = data?.reputation||0; });
+  }
+});
+document.getElementById('profilBack').addEventListener('click', () => {
+  document.getElementById('profilPanel').classList.remove('on');
+});
+
+let tT;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('on'),2600);}
+
+// ═══ AUTH ═══
+let currentUser = null;
+
+function updateUserUI(user) {
+  currentUser = user;
+  const btn = document.getElementById('userBtn');
+  const avatar = document.getElementById('userAvatar');
+  const name = document.getElementById('userName');
+  if(user) {
+    const initiale = (user.email||'?')[0].toUpperCase();
+    avatar.textContent = initiale;
+    name.textContent = user.email.split('@')[0];
+    btn.title = 'Mon profil';
+  } else {
+    avatar.textContent = '?';
+    name.textContent = 'Connexion';
+  }
+}
+
+function showAuth() {
+  document.getElementById('authScreen').classList.remove('hidden');
+}
+function hideAuth() {
+  document.getElementById('authScreen').classList.add('hidden');
+}
+
+// Étapes du formulaire auth
+let authStep = 'email'; // email → password → done
+
+document.getElementById('authBtn').addEventListener('click', async () => {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value.trim();
+  const btn = document.getElementById('authBtn');
+  const msg = document.getElementById('authMsg');
+  const err = document.getElementById('authErr');
+  msg.style.display='none'; err.style.display='none';
+
+  if(!email) { err.textContent='Entre ton email !'; err.style.display='block'; return; }
+
+  if(authStep === 'email') {
+    // Vérifier si l'email existe → afficher mot de passe
+    btn.textContent = 'Chargement...'; btn.style.opacity='.6';
+    document.getElementById('authPassword').style.display = 'block';
+    document.getElementById('authTitle').textContent = 'Entre ton mot de passe';
+    btn.textContent = 'Se connecter →'; btn.style.opacity='1';
+    authStep = 'password';
+    return;
+  }
+
+  if(authStep === 'password') {
+    if(!password) { err.textContent='Entre ton mot de passe !'; err.style.display='block'; return; }
+    btn.textContent = 'Connexion...'; btn.style.opacity='.6';
+
+    // Essayer de se connecter
+    const {data:signInData, error:signInErr} = await sb.auth.signInWithPassword({email, password});
+    if(!signInErr && signInData.user) {
+      updateUserUI(signInData.user);
+      hideAuth();
+      toast('👋 Bienvenue ' + signInData.user.email.split('@')[0] + ' !');
+      btn.textContent = 'Se connecter →'; btn.style.opacity='1';
+      return;
+    }
+
+    // Si échec → créer le compte
+    const {data:signUpData, error:signUpErr} = await sb.auth.signUp({email, password});
+    if(signUpErr) {
+      err.textContent = signUpErr.message; err.style.display='block';
+    } else {
+      msg.textContent = '✅ Compte créé ! Vérifie ton email pour confirmer.';
+      msg.style.display='block';
+      if(signUpData.user && !signUpData.user.identities?.length) {
+        // Email déjà utilisé
+        err.textContent = 'Email déjà utilisé. Vérifie ton mot de passe.';
+        err.style.display='block'; msg.style.display='none';
+      }
+    }
+    btn.textContent = 'Se connecter →'; btn.style.opacity='1';
+  }
+});
+
+// Continuer sans compte
+document.getElementById('authSkip').addEventListener('click', () => {
+  hideAuth();
+  toast('👀 Mode visiteur — connexion limitée');
+});
+
+// Clic sur le bouton user
+document.getElementById('userBtn').addEventListener('click', () => {
+  if(currentUser) {
+    if(confirm('Te déconnecter ?')) {
+      sb.auth.signOut();
+      currentUser = null;
+      updateUserUI(null);
+      toast('👋 Déconnecté');
+    }
+  } else {
+    showAuth();
+  }
+});
+
+// Écouter les changements d'état auth
+sb.auth.onAuthStateChange((event, session) => {
+  if(session?.user) {
+    updateUserUI(session.user);
+    hideAuth();
+  } else {
+    updateUserUI(null);
+  }
+});
+
+// ═══ INIT ═══
+map.on('load', async () => {
+  // Vérifier si déjà connecté
+  const {data:{session}} = await sb.auth.getSession();
+  if(session?.user) {
+    updateUserUI(session.user);
+    hideAuth();
+  }
+  // Charger le volet par défaut
+  await loadVolet('alertes');
+  updateMarkers();
+  renderCards();
+  // Mettre à jour les compteurs dans les tabs
+  for(const v of ['marches','sorties','bonsplans','sargasses']){
+    loadVolet(v).then(items => {
+      const tab = document.querySelector('.vt[data-v="'+v+'"] .n');
+      if(tab) tab.textContent = items.filter(x=>x.status!=='resolved').length;
+    });
+  }
+  // Activer le temps réel
+  subscribeRealtime();
+  // Init Firebase notifications
+  initFirebase();
+});
+</script>
+</body>
+</html>
