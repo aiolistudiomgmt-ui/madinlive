@@ -1,14 +1,28 @@
 // ═══════════════════════════════════════════════════════════
 // MADINLIVE — Bot Telegram « Routes de Martinique »
-// Déployé sur Railway.app — tourne h24
+// Déployé sur Render.com — tourne h24
 // ═══════════════════════════════════════════════════════════
 
+const http = require("http");
 const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
 const { createClient } = require("@supabase/supabase-js");
 
-// ════════════ VARIABLES D'ENVIRONNEMENT (Railway) ════════════
+// ════════════ SERVEUR HTTP (obligatoire pour Render Web Service) ════════════
+// Render tue tout Web Service qui n'ouvre pas de port. Ce mini-serveur
+// répond juste "OK" pour que Render considère le service comme vivant.
+const PORT = process.env.PORT || 3000;
+let botStatus = "demarrage";
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("MadinLive Bot — " + botStatus + " — " + new Date().toISOString());
+}).listen(PORT, () => {
+  console.log(`🌐 Serveur HTTP en écoute sur le port ${PORT} (Render keep-alive)`);
+});
+// ═════════════════════════════════════════════════════════════
+
+// ════════════ VARIABLES D'ENVIRONNEMENT (Render) ════════════
 const apiId    = parseInt(process.env.TELEGRAM_API_ID);
 const apiHash  = process.env.TELEGRAM_API_HASH;
 const SESSION  = process.env.TELEGRAM_SESSION;
@@ -145,17 +159,20 @@ async function traiterMessage(msg) {
   else console.log(`✅ PUBLIÉ: "${analyse.titre}" | ${commune} | ${row.type}`);
 }
 
-// ═══ KEEPALIVE — Railway coupe les process inactifs ═══
+// ═══ KEEPALIVE ═══
 setInterval(()=>{ console.log(`💓 keepalive ${new Date().toISOString()}`); }, 5*60*1000);
 
 // ═══ DÉMARRAGE ═══
 (async()=>{
   if(!SESSION||SESSION==="COLLE_TA_SESSION_ICI"){
-    console.log("⚠️ Variable TELEGRAM_SESSION manquante dans Railway."); process.exit(1);
+    console.log("⚠️ Variable TELEGRAM_SESSION manquante dans Render."); 
+    botStatus = "erreur: SESSION manquante";
+    return; // ne PAS process.exit — garde le serveur HTTP vivant pour Render
   }
   console.log("Connexion à Telegram...");
   const client=new TelegramClient(new StringSession(SESSION),apiId,apiHash,{connectionRetries:10});
   await client.connect();
+  botStatus = "en ecoute du groupe";
   console.log("✅ Connecté. En écoute du groupe LES ROUTES DE MARTINIQUE...\n");
   client.addEventHandler(async(event)=>{
     const msg=event.message; if(!msg) return;
@@ -166,7 +183,8 @@ setInterval(()=>{ console.log(`💓 keepalive ${new Date().toISOString()}`); }, 
   setInterval(async()=>{
     if(!client.connected){
       console.log("🔄 Reconnexion...");
-      try { await client.connect(); console.log("✅ Reconnecté."); }
+      botStatus = "reconnexion...";
+      try { await client.connect(); botStatus="en ecoute du groupe"; console.log("✅ Reconnecté."); }
       catch(e){ console.log("❌ Reconnexion échouée:",e.message); }
     }
   }, 30*1000);
