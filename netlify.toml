@@ -1,0 +1,10 @@
+# ═══════════════════════════════════════════════════════════
+# MadinLive — Configuration Netlify
+# ═══════════════════════════════════════════════════════════
+
+[build]
+  # Le site est un simple fichier statique (index.html à la racine)
+  publish = "."
+  functions = "netlify/functions"
+
+# Les fonctions sont accessibles à /.netlify/functions/<nom>
