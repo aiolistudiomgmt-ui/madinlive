@@ -2,6 +2,7 @@
 // MadinLive — Import sargasses via Netlify Function
 // Contourne le blocage réseau NOAA des Edge Functions Supabase.
 // Interroge NOAA/AOML ERDDAP (indice AFAI), calcule le niveau par plage, écrit dans Supabase.
+// VERSION DIAGNOSTIC : remonte le détail de chaque erreur dans la réponse.
 // ═══════════════════════════════════════════════════════════
 
 const { createClient } = require('@supabase/supabase-js');
@@ -27,40 +28,43 @@ const PLAGES = [
   { plage: 'Cap Chevalier',        commune: 'Sainte-Anne',         lat: 14.4460, lng: -60.8180 },
 ];
 
-// ATTENTION niveaux recalibrés : l'échelle AFAI réelle va d'environ -0.004 à 0.006
-// (et non 0-1 comme le laissait supposer l'ancien code). Ces seuils sont une
-// première approximation à partir de la colorBar officielle du dataset NOAA —
-// à ajuster avec Olivier une fois qu'on a des observations de terrain pour comparer.
+// Seuils provisoires (échelle AFAI réelle ≈ -0.004 à 0.006) — à valider avec le terrain.
 function afaiToNiveau(afai) {
   if (afai < 0.001) return 'libre';
   if (afai < 0.003) return 'modere';
   return 'alerte';
 }
 
-// Requête ERDDAP NOAA/AOML pour l'indice AFAI (Sargasses) autour d'un point
-// Dataset réel (vérifié) : noaa_aoml_atlantic_oceanwatch_AFAI_7D sur cwcgom.aoml.noaa.gov
-// (l'ancien code pointait vers un dataset inexistant sur coastwatch.pfeg.noaa.gov → 404 systématique)
+// Requête ERDDAP NOAA/AOML pour l'indice AFAI (Sargasses) autour d'un point.
+// Retourne { afai, error } — error est null en cas de succès, sinon le détail exact.
 async function fetchAfai(lat, lng) {
   const minLat = (lat - 0.2).toFixed(2);
   const maxLat = (lat + 0.2).toFixed(2);
   const minLng = (lng - 0.2).toFixed(2);
   const maxLng = (lng + 0.2).toFixed(2);
-  // (last) = dernier pas de temps disponible, évite tout souci de décalage
-  // de publication (le composite 7 jours n'est pas toujours dispo pour "hier")
   const url = `https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.json?` +
     `AFAI[(last)][(${minLat}):1:(${maxLat})][(${minLng}):1:(${maxLng})]`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-    if (!res.ok) { console.warn(`NOAA ${res.status} pour ${lat},${lng}`); return null; }
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) {
+      let bodyText = '';
+      try { bodyText = (await res.text()).slice(0, 300); } catch (_) {}
+      return { afai: null, error: `HTTP ${res.status} — ${bodyText || 'pas de détail'}` };
+    }
     const data = await res.json();
     const rows = data?.table?.rows || [];
-    if (!rows.length) return 0;
+    if (!rows.length) return { afai: 0, error: null };
     const values = rows.map((r) => r[3]).filter((v) => v !== null && !isNaN(v));
-    if (!values.length) return 0;
-    return values.reduce((a, b) => a + b, 0) / values.length;
+    if (!values.length) return { afai: 0, error: null };
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    return { afai: avg, error: null };
   } catch (e) {
-    console.warn(`ERDDAP error ${lat},${lng}: ${e.message}`);
-    return null;
+    clearTimeout(timer);
+    return { afai: null, error: `${e.name || 'Error'}: ${e.message || String(e)}` };
   }
 }
 
@@ -71,28 +75,34 @@ exports.handler = async () => {
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
   let updated = 0, errors = 0;
   const results = [];
+  const errorDetails = [];
 
   for (const p of PLAGES) {
-    try {
-      const afai = await fetchAfai(p.lat, p.lng);
-      if (afai === null) { console.warn(`${p.plage}: données indisponibles`); errors++; continue; }
-      const niveau = afaiToNiveau(afai);
-      const { error } = await sb.from('sargasses').upsert({
-        plage: p.plage,
-        commune: p.commune,
-        niveau,
-        source: SOURCE,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'plage', ignoreDuplicates: false });
-      if (error) { console.error(`${p.plage}: ${error.message}`); errors++; }
-      else { updated++; results.push({ plage: p.plage, niveau, afai: afai.toFixed(4) }); }
-    } catch (e) {
-      console.error(`${p.plage}: ${e.message}`); errors++;
+    const { afai, error } = await fetchAfai(p.lat, p.lng);
+    if (afai === null) {
+      errors++;
+      errorDetails.push({ plage: p.plage, reason: error });
+      continue;
+    }
+    const niveau = afaiToNiveau(afai);
+    const { error: sbError } = await sb.from('sargasses').upsert({
+      plage: p.plage,
+      commune: p.commune,
+      niveau,
+      source: SOURCE,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'plage', ignoreDuplicates: false });
+    if (sbError) {
+      errors++;
+      errorDetails.push({ plage: p.plage, reason: `Supabase: ${sbError.message}` });
+    } else {
+      updated++;
+      results.push({ plage: p.plage, niveau, afai: afai.toFixed(4) });
     }
   }
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ success: updated, errors, results, timestamp: new Date().toISOString() }),
+    body: JSON.stringify({ success: updated, errors, results, errorDetails, timestamp: new Date().toISOString() }),
   };
 };
