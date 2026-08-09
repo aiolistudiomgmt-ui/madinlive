@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════
 // MadinLive — Import sargasses via Netlify Function
 // Contourne le blocage réseau NOAA des Edge Functions Supabase.
-// Interroge NOAA ERDDAP, calcule le niveau par plage, écrit dans Supabase.
+// Interroge NOAA/AOML ERDDAP (indice AFAI), calcule le niveau par plage, écrit dans Supabase.
 // ═══════════════════════════════════════════════════════════
 
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const SOURCE = 'Copernicus Marine';
+const SOURCE = 'NOAA/AOML - USF AFAI';
 
 // Plages principales de Martinique (côte atlantique surtout touchée)
 const PLAGES = [
@@ -27,24 +27,30 @@ const PLAGES = [
   { plage: 'Cap Chevalier',        commune: 'Sainte-Anne',         lat: 14.4460, lng: -60.8180 },
 ];
 
+// ATTENTION niveaux recalibrés : l'échelle AFAI réelle va d'environ -0.004 à 0.006
+// (et non 0-1 comme le laissait supposer l'ancien code). Ces seuils sont une
+// première approximation à partir de la colorBar officielle du dataset NOAA —
+// à ajuster avec Olivier une fois qu'on a des observations de terrain pour comparer.
 function afaiToNiveau(afai) {
-  if (afai < 0.15) return 'libre';
-  if (afai < 0.40) return 'modere';
+  if (afai < 0.001) return 'libre';
+  if (afai < 0.003) return 'modere';
   return 'alerte';
 }
 
-// Requête ERDDAP NOAA pour l'indice sargasses autour d'un point
+// Requête ERDDAP NOAA/AOML pour l'indice AFAI (Sargasses) autour d'un point
+// Dataset réel (vérifié) : noaa_aoml_atlantic_oceanwatch_AFAI_7D sur cwcgom.aoml.noaa.gov
+// (l'ancien code pointait vers un dataset inexistant sur coastwatch.pfeg.noaa.gov → 404 systématique)
 async function fetchAfai(lat, lng) {
   const minLat = (lat - 0.2).toFixed(2);
   const maxLat = (lat + 0.2).toFixed(2);
   const minLng = (lng - 0.2).toFixed(2);
   const maxLng = (lng + 0.2).toFixed(2);
-  // Données satellite J-1
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  const url = `https://coastwatch.pfeg.noaa.gov/erddap/griddap/noaa_aoml_sargassum_composite_7day.json?` +
-    `sargassum_density[(${yesterday}T00:00:00Z)][(${minLat}):1:(${maxLat})][(${minLng}):1:(${maxLng})]`;
+  // (last) = dernier pas de temps disponible, évite tout souci de décalage
+  // de publication (le composite 7 jours n'est pas toujours dispo pour "hier")
+  const url = `https://cwcgom.aoml.noaa.gov/erddap/griddap/noaa_aoml_atlantic_oceanwatch_AFAI_7D.json?` +
+    `AFAI[(last)][(${minLat}):1:(${maxLat})][(${minLng}):1:(${maxLng})]`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!res.ok) { console.warn(`NOAA ${res.status} pour ${lat},${lng}`); return null; }
     const data = await res.json();
     const rows = data?.table?.rows || [];
