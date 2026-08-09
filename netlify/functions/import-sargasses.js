@@ -88,6 +88,8 @@ exports.handler = async () => {
     const { error: sbError } = await sb.from('sargasses').upsert({
       plage: p.plage,
       commune: p.commune,
+      lat: p.lat,
+      lng: p.lng,
       niveau,
       source: SOURCE,
       updated_at: new Date().toISOString(),
