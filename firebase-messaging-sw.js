@@ -15,7 +15,7 @@ firebase.initializeApp({
   projectId: "madinlive-fe6f5",
   storageBucket: "madinlive-fe6f5.firebasestorage.app",
   messagingSenderId: "190026832681",
-  appId: "1:190026832681:web:dbf683efca1c2d4cd9b538"
+  appId: "1:190026832681:web:50c91765250ad98dd9b538"
 });
 
 const messaging = firebase.messaging();
