@@ -1,13 +1,13 @@
 // Service Worker MadinLive — Mode hors-ligne
-const CACHE = 'madinlive-v1';
+const CACHE = 'madinlive-v2';
 const OFFLINE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon-192.png',
   'https://fonts.googleapis.com/css2?family=Unbounded:wght@700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
-  'https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css',
-  'https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js',
+  'https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.css',
+  'https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
@@ -47,7 +47,19 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Fonts, Mapbox CSS — Cache First
+  // Ressources DYNAMIQUES Mapbox : jamais mises en cache.
+  // Les glyphes (/fonts/), sprites, tuiles et styles étaient capturés par la
+  // règle "Cache First" ci-dessous et servis indéfiniment. Un glyphe mis en
+  // cache incomplet corrompt ensuite TOUS les labels de la carte (texte illisible
+  // sur les noms de communes, écussons routiers, chiffres des clusters) —
+  // et aucun changement de style ou de version ne peut le corriger, puisque
+  // l'appareil ne redemande jamais la ressource.
+  if(url.hostname.includes('mapbox.com') &&
+     /\/(fonts|sprite|styles|v4|tiles|raster|models)\//.test(url.pathname)) {
+    return; // laisser passer au réseau, sans interception
+  }
+
+  // Fonts Google, bibliothèque Mapbox (JS/CSS versionnés) — Cache First
   if(url.hostname.includes('fonts.googleapis') || url.hostname.includes('mapbox.com')) {
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request).then(r => {
