@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test carte — MadinLive</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js"></script>
+<style>
+  html,body{margin:0;height:100%;font-family:system-ui,sans-serif}
+  #map{position:absolute;top:64px;bottom:0;width:100%}
+  .bar{position:fixed;top:0;left:0;right:0;height:64px;background:#111;color:#fff;
+       display:flex;align-items:center;gap:8px;padding:0 10px;z-index:10;font-size:13px}
+  button{background:#FF3B4E;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="bar">
+  <button id="b1">Standard</button>
+  <button id="b2">Dark v11</button>
+  <button id="b3">Streets v12</button>
+  <span id="info"></span>
+</div>
+<div id="map"></div>
+<script>
+// Page de diagnostic PURE : aucun code MadinLive, aucun Service Worker,
+// aucun cluster, aucune couche personnalisée. Uniquement Mapbox.
+// But : déterminer si les artefacts sur les labels viennent de l'app
+// ou de Mapbox sur cet appareil Android.
+mapboxgl.accessToken = 'pk.eyJ1IjoiYWlvbGkiLCJhIjoiY21vZGViY3F2MDJmdTJyczJ2eGZ3bGowbiJ9.QUeHjcYkho4pZYCo00SVRA';
+
+var map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/standard',
+  center: [-61.024, 14.641],
+  zoom: 9.5
+});
+
+document.getElementById('info').textContent = 'GL JS ' + mapboxgl.version;
+
+function setStyle(url, label){
+  map.setStyle(url);
+  document.getElementById('info').textContent = label + ' · GL JS ' + mapboxgl.version;
+}
+document.getElementById('b1').onclick = function(){ setStyle('mapbox://styles/mapbox/standard','Standard'); };
+document.getElementById('b2').onclick = function(){ setStyle('mapbox://styles/mapbox/dark-v11','Dark v11'); };
+document.getElementById('b3').onclick = function(){ setStyle('mapbox://styles/mapbox/streets-v12','Streets v12'); };
+
+// Empêche tout Service Worker existant d'intercepter les requêtes de cette page
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(rs){
+    rs.forEach(function(r){ console.log('SW actif sur ce scope:', r.scope); });
+  });
+}
+</script>
+</body>
+</html>
