@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test MapLibre — MadinLive</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  html,body{margin:0;height:100%;font-family:system-ui,sans-serif}
+  #map{position:absolute;top:64px;bottom:0;width:100%}
+  .bar{position:fixed;top:0;left:0;right:0;height:64px;background:#111;color:#fff;
+       display:flex;align-items:center;gap:6px;padding:0 10px;z-index:10;font-size:12px;
+       overflow-x:auto;white-space:nowrap}
+  button{background:#FF3B4E;color:#fff;border:0;border-radius:8px;padding:8px 11px;
+         font-size:12px;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="bar">
+  <button id="b1">Sombre</button>
+  <button id="b2">Clair</button>
+  <button id="b3">Rues</button>
+  <span id="info"></span>
+</div>
+<div id="map"></div>
+<script>
+// Page de diagnostic MapLibre — moteur alternatif à Mapbox GL JS.
+// But : vérifier si les artefacts sur les labels (visibles sur Android avec
+// Mapbox, quelles que soient la version et le style) disparaissent avec MapLibre.
+// Styles CARTO gratuits, sans clé API, avec labels français.
+
+// Styles de démonstration (CARTO, libres d'accès, pas de token requis)
+var STYLES = {
+  sombre: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  clair:  'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  rues:   'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
+};
+
+var map = new maplibregl.Map({
+  container: 'map',
+  style: STYLES.sombre,
+  center: [-61.024, 14.641],
+  zoom: 9.5
+});
+
+map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+function info(label){
+  document.getElementById('info').textContent = label + ' · MapLibre ' + maplibregl.getVersion();
+}
+info('Sombre');
+
+document.getElementById('b1').onclick = function(){ map.setStyle(STYLES.sombre); info('Sombre'); };
+document.getElementById('b2').onclick = function(){ map.setStyle(STYLES.clair);  info('Clair'); };
+document.getElementById('b3').onclick = function(){ map.setStyle(STYLES.rues);   info('Rues'); };
+
+// Quelques marqueurs pour comparer le rendu du texte dans des cercles,
+// équivalent des clusters de MadinLive.
+map.on('load', function(){
+  map.addSource('pts', {
+    type: 'geojson',
+    data: { type:'FeatureCollection', features: [
+      {type:'Feature', properties:{n:'12'}, geometry:{type:'Point', coordinates:[-61.066,14.603]}},
+      {type:'Feature', properties:{n:'5'},  geometry:{type:'Point', coordinates:[-60.996,14.611]}},
+      {type:'Feature', properties:{n:'27'}, geometry:{type:'Point', coordinates:[-60.939,14.677]}}
+    ]}
+  });
+  map.addLayer({ id:'c', type:'circle', source:'pts',
+    paint:{ 'circle-radius':22, 'circle-color':'#FF3B4E', 'circle-opacity':0.9,
+            'circle-stroke-width':2, 'circle-stroke-color':'rgba(255,255,255,.35)' } });
+  map.addLayer({ id:'n', type:'symbol', source:'pts',
+    layout:{ 'text-field':['get','n'], 'text-size':14, 'text-allow-overlap':true },
+    paint:{ 'text-color':'#fff' } });
+});
+</script>
+</body>
+</html>
